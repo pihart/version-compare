@@ -22,6 +22,8 @@ button { min-height: 38px; padding: 7px 13px; border: 1px solid var(--accent); b
 button.secondary { border-color: var(--line); background: var(--surface); color: var(--text); }
 button:disabled { cursor: not-allowed; opacity: .48; }
 .app-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px max(22px, calc((100% - 1500px) / 2)); border-bottom: 1px solid var(--line); background: var(--surface); }
+.app-actions { display: flex; align-items: end; gap: 12px; }
+.comparison-order { min-width: 185px; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 2px; font-size: 21px; }
 .app-header p, .preference-box p, .graph-help { margin-bottom: 0; color: var(--muted); }

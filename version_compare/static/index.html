@@ -13,7 +13,10 @@
       <h1>Version comparison</h1>
       <p>Compare structured content across revisions and record durable preferences.</p>
     </div>
-    <button type="button" id="refresh-versions" class="secondary" title="Refresh versions (Ctrl+R)">Refresh versions</button>
+    <div class="app-actions">
+      <label class="comparison-order">Chronological default<select id="chronological-direction"><option value="newer-left">Newer version on left</option><option value="newer-right">Newer version on right</option></select></label>
+      <button type="button" id="refresh-versions" class="secondary" title="Refresh versions (Ctrl+R)">Refresh versions</button>
+    </div>
   </header>
 
   <main>

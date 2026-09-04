@@ -18,6 +18,7 @@ const controls = {
   rightRevision: byId("right-revision"),
   rightProfile: byId("right-profile"),
 };
+const DIRECTION_STORAGE_KEY = "version-compare-chronological-direction";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -571,22 +572,36 @@ async function initialize() {
     ]);
     state.revisions = revisions;
     state.preferences = preferences;
-    const defaultRevision = revisions.find((revision) => revision.recordable !== false)?.id || revisions[0]?.id;
-    if (!defaultRevision) throw new Error("The project adapter returned no revisions.");
-    fillRevisionSelect(controls.leftRevision, defaultRevision);
-    fillRevisionSelect(controls.rightRevision, defaultRevision);
-    await Promise.all([fillProfiles("left"), fillProfiles("right")]);
+    if (!revisions.length) throw new Error("The project adapter returned no revisions.");
+    fillRevisionSelect(controls.leftRevision);
+    fillRevisionSelect(controls.rightRevision);
+    try { byId("chronological-direction").value = localStorage.getItem(DIRECTION_STORAGE_KEY) || "newer-left"; } catch (_) { /* Storage can be disabled. */ }
+    await applyChronologicalDefault();
     renderGraph();
-    await compare();
   } catch (error) {
     showError(error);
   }
+}
+
+async function applyChronologicalDefault() {
+  const committed = state.revisions.filter((revision) => revision.recordable !== false);
+  const newer = committed[0] || state.revisions[0];
+  const older = committed[1] || newer;
+  const newerLeft = byId("chronological-direction").value !== "newer-right";
+  controls.leftRevision.value = newerLeft ? newer.id : older.id;
+  controls.rightRevision.value = newerLeft ? older.id : newer.id;
+  await Promise.all([fillProfiles("left", "main"), fillProfiles("right", "main")]);
+  await compare();
 }
 
 controls.leftRevision.addEventListener("change", async () => { await fillProfiles("left"); await compare(); });
 controls.rightRevision.addEventListener("change", async () => { await fillProfiles("right"); await compare(); });
 controls.leftProfile.addEventListener("change", compare);
 controls.rightProfile.addEventListener("change", compare);
+byId("chronological-direction").addEventListener("change", async (event) => {
+  try { localStorage.setItem(DIRECTION_STORAGE_KEY, event.currentTarget.value); } catch (_) { /* Storage can be disabled. */ }
+  await applyChronologicalDefault();
+});
 byId("changes-only").addEventListener("change", renderDiff);
 byId("swap").addEventListener("click", async () => {
   const leftRevision = controls.leftRevision.value;
