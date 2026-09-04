@@ -116,9 +116,13 @@ function visualBlockHtml(block, row, side) {
 }
 
 function renderNormalizedVisual(status = "") {
-  const rowsById = new Map(state.rows.map((row) => [row.id, row]));
+  const rowsByBlock = new Map();
+  state.rows.forEach((row) => {
+    if (row.left) rowsByBlock.set(`left:${blockKey(row.left)}`, row);
+    if (row.right) rowsByBlock.set(`right:${blockKey(row.right)}`, row);
+  });
   const documentHtml = (version, side) => version.blocks
-    .map((block) => visualBlockHtml(block, rowsById.get(blockKey(block)), side))
+    .map((block) => visualBlockHtml(block, rowsByBlock.get(`${side}:${blockKey(block)}`), side))
     .join("");
   byId("visual-status").textContent = status || "Normalized layout ignores pagination while preserving document hierarchy; changed blocks and words are highlighted.";
   byId("visual-comparison").innerHTML = `<div class="visual-documents">
@@ -183,30 +187,61 @@ function renderVisual() {
 }
 
 function buildRows() {
-  const left = new Map(state.left.blocks.map((block) => [blockKey(block), block]));
-  const right = new Map(state.right.blocks.map((block) => [blockKey(block), block]));
-  const ids = [...new Set([...left.keys(), ...right.keys()])]
-    .sort((a, b) => {
-      const leftIndex = left.get(a)?.index ?? right.get(a)?.index ?? 9999;
-      const rightIndex = left.get(b)?.index ?? right.get(b)?.index ?? 9999;
-      return leftIndex - rightIndex;
-    });
-  state.rows = ids.map((id) => {
-    const leftBlock = left.get(id) || null;
-    const rightBlock = right.get(id) || null;
+  const leftBlocks = state.left.blocks;
+  const rightBlocks = state.right.blocks;
+  const unmatchedLeft = new Set(leftBlocks);
+  const unmatchedRight = new Set(rightBlocks);
+  const exactRight = new Map();
+  const exactKey = (block) => `${block.kind}\u0000${block.text}`;
+  rightBlocks.forEach((block) => {
+    const key = exactKey(block);
+    if (!exactRight.has(key)) exactRight.set(key, []);
+    exactRight.get(key).push(block);
+  });
+  const pairs = [];
+  // Content that merely moved is unchanged. Pair it before using a paragraph
+  // identifier, which is positional and can shift after a section is removed.
+  leftBlocks.forEach((leftBlock) => {
+    const candidates = exactRight.get(exactKey(leftBlock)) || [];
+    const rightBlock = candidates.find((candidate) => unmatchedRight.has(candidate));
+    if (!rightBlock) return;
+    unmatchedLeft.delete(leftBlock);
+    unmatchedRight.delete(rightBlock);
+    pairs.push([leftBlock, rightBlock]);
+  });
+  const rightById = new Map();
+  [...unmatchedRight].forEach((block) => {
+    const key = blockKey(block);
+    if (!rightById.has(key)) rightById.set(key, []);
+    rightById.get(key).push(block);
+  });
+  [...unmatchedLeft].forEach((leftBlock) => {
+    const candidates = rightById.get(blockKey(leftBlock)) || [];
+    const rightBlock = candidates.find((candidate) => unmatchedRight.has(candidate));
+    if (rightBlock) {
+      unmatchedRight.delete(rightBlock);
+      pairs.push([leftBlock, rightBlock]);
+    } else {
+      pairs.push([leftBlock, null]);
+    }
+  });
+  [...unmatchedRight].forEach((rightBlock) => pairs.push([null, rightBlock]));
+  state.rows = pairs.map(([leftBlock, rightBlock]) => {
     let status = "unchanged";
     if (!leftBlock) status = "only-right";
     else if (!rightBlock) status = "only-left";
     else if (leftBlock.text !== rightBlock.text || leftBlock.kind !== rightBlock.kind) status = "changed";
     return {
-      id,
+      id: leftBlock && rightBlock && blockKey(leftBlock) !== blockKey(rightBlock)
+        ? `${blockKey(leftBlock)} ↔ ${blockKey(rightBlock)}`
+        : blockKey(leftBlock || rightBlock),
       left: leftBlock,
       right: rightBlock,
       status,
       section: leftBlock?.section || rightBlock?.section || "Other",
       index: leftBlock?.index ?? rightBlock?.index ?? 9999,
     };
-  });
+  }).sort((leftRow, rightRow) => leftRow.index - rightRow.index);
 }
 
 function tokenDiff(leftText, rightText) {
