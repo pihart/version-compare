@@ -1,6 +1,6 @@
 # Version Compare
 
-A private, reusable toolkit for comparing structured document versions. It
+A reusable toolkit for comparing structured document versions. It
 provides:
 
 - section-aware and word-aware content diffs;
