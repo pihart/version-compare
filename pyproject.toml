@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "version-compare"
+version = "0.1.0"
+description = "Visual, semantic, and preference-graph comparison for versioned documents"
+requires-python = ">=3.11"
+dependencies = ["pypdf>=5,<7"]
+
+[project.scripts]
+version-compare = "version_compare.server:main"
+pdf-version-compare = "version_compare.pdf_compare:main"
+
+[tool.setuptools.package-data]
+version_compare = ["static/*.html", "static/*.js", "static/*.css"]

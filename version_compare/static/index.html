@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Version comparison</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Version comparison</h1>
+      <p>Compare structured content across revisions and record durable preferences.</p>
+    </div>
+    <button type="button" id="refresh-versions" class="secondary">Refresh versions</button>
+  </header>
+
+  <main>
+    <section class="selectors" aria-label="Versions to compare">
+      <fieldset>
+        <legend>Left version</legend>
+        <label>Revision<select id="left-revision"></select></label>
+        <label>Variant<select id="left-profile"></select></label>
+        <div id="left-label" class="version-label"></div>
+      </fieldset>
+      <button type="button" id="swap" class="swap" aria-label="Swap compared versions">⇄</button>
+      <fieldset>
+        <legend>Right version</legend>
+        <label>Revision<select id="right-revision"></select></label>
+        <label>Variant<select id="right-profile"></select></label>
+        <div id="right-label" class="version-label"></div>
+      </fieldset>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="Comparison views">
+      <button type="button" role="tab" aria-selected="true" aria-controls="content-panel" id="content-tab">Content diff</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="visual-panel" id="visual-tab">Visual comparison</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="graph-panel" id="graph-tab">Preference graph</button>
+    </nav>
+
+    <section id="content-panel" role="tabpanel" aria-labelledby="content-tab">
+      <div class="toolbar">
+        <label class="checkbox"><input type="checkbox" id="changes-only" checked> Show changes only</label>
+        <div id="stats" class="stats" aria-live="polite"></div>
+      </div>
+      <nav id="section-nav" class="section-nav" aria-label="Changed sections"></nav>
+      <div id="diff" aria-live="polite"></div>
+
+      <section class="preference-box" aria-labelledby="preference-heading">
+        <div>
+          <h2 id="preference-heading">Record a decision</h2>
+          <p>Choose a strict preference, or intentionally keep two audience-specific versions incomparable.</p>
+        </div>
+        <label>Optional reason<input id="preference-reason" type="text" maxlength="500" placeholder="e.g. clearer scope without losing evidence"></label>
+        <div class="preference-actions">
+          <button type="button" id="prefer-left">Left is strictly better</button>
+          <button type="button" id="mark-incomparable" class="secondary">Intentionally incomparable</button>
+          <button type="button" id="prefer-right">Right is strictly better</button>
+        </div>
+        <div id="preference-status" class="status" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <section id="visual-panel" role="tabpanel" aria-labelledby="visual-tab" hidden>
+      <div class="visual-toolbar">
+        <div class="visual-modes" role="group" aria-label="Visual comparison mode">
+          <button type="button" id="visual-normalized" aria-pressed="true">Normalized layout</button>
+          <button type="button" id="visual-pdf" class="secondary" aria-pressed="false">Rendered PDF pages</button>
+        </div>
+        <p id="visual-status" aria-live="polite">Normalized layout ignores pagination so content changes are easy to locate.</p>
+      </div>
+      <div id="visual-comparison" aria-live="polite"></div>
+    </section>
+
+    <section id="graph-panel" role="tabpanel" aria-labelledby="graph-tab" hidden>
+      <section class="graph-overview">
+        <div>
+          <h2>Maximal candidates</h2>
+          <p class="graph-help">Maximal versions have no recorded strictly better version. Choose among these for the task at hand.</p>
+        </div>
+        <div id="graph-stats" class="graph-stats" aria-live="polite"></div>
+        <div id="maximal-list" class="maximal-list"></div>
+      </section>
+
+      <section class="graph-decision-box" aria-labelledby="graph-decision-heading">
+        <div>
+          <h2 id="graph-decision-heading">Decide the selected pair</h2>
+          <p><strong id="graph-left-label">Left</strong><span aria-hidden="true"> ↔ </span><strong id="graph-right-label">Right</strong></p>
+        </div>
+        <label>Optional reason<input id="graph-preference-reason" type="text" maxlength="500" placeholder="Why one dominates, or why both remain useful"></label>
+        <div class="preference-actions">
+          <button type="button" id="graph-prefer-left">Left is better</button>
+          <button type="button" id="graph-mark-incomparable" class="secondary">Incomparable</button>
+          <button type="button" id="graph-prefer-right">Right is better</button>
+        </div>
+        <div id="graph-preference-status" class="status" aria-live="polite"></div>
+      </section>
+
+      <div class="graph-legend" aria-label="Graph legend">
+        <span class="legend-maximal">Maximal candidate</span>
+        <span class="legend-strict">Strict preference</span>
+        <span class="legend-incomparable">Intentionally incomparable</span>
+        <span class="legend-suggestion">Decision needed</span>
+      </div>
+      <div id="graph-empty" class="empty-state">No preferences recorded yet.</div>
+      <div class="graph-scroll"><svg id="preference-graph" role="img" aria-label="Complete version preference graph"></svg></div>
+
+      <section class="review-queue">
+        <h2>Decisions needed</h2>
+        <p class="graph-help">Dashed links identify comparisons that can reduce the provisional maximal set. Load a pair, inspect its content or visual diff, then record a decision.</p>
+        <div id="suggestion-list"></div>
+      </section>
+
+      <section class="decision-history">
+        <h2>Recorded decisions</h2>
+      <div id="edge-list" class="edge-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="loss-dialog">
+    <form method="dialog">
+      <h2>Review potential losses</h2>
+      <p id="loss-summary"></p>
+      <div id="loss-list" class="loss-list"></div>
+      <label class="checkbox confirmation"><input type="checkbox" id="loss-reviewed"> I reviewed these changes before recording the preference.</label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Cancel</button>
+        <button value="confirm" id="confirm-preference" disabled>Record preference</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="error" role="alert" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
