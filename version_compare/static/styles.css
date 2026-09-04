@@ -55,6 +55,8 @@ select, input[type="text"] { width: 100%; min-width: 0; min-height: 38px; paddin
 .change-kind { display: inline-block; margin-top: 5px; padding: 2px 6px; border-radius: 999px; background: var(--changed); color: var(--text); }
 .diff-cell { min-width: 0; padding: 12px 14px; border-left: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .diff-cell.empty { color: var(--muted); font-style: italic; }
+.diff-cell.added-cell { background: var(--added); }
+.diff-cell.removed-cell { background: var(--removed); }
 .diff-cell del, .diff-cell ins { border-radius: 3px; color: inherit; text-decoration: none; }
 .diff-cell del { background: var(--removed); text-decoration: line-through; text-decoration-thickness: 1px; }
 .diff-cell ins { background: var(--added); }

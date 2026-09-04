@@ -19,6 +19,7 @@ const controls = {
   rightProfile: byId("right-profile"),
 };
 const DIRECTION_STORAGE_KEY = "version-compare-chronological-direction";
+const DIFF_BASE_STORAGE_KEY = "version-compare-diff-base-side";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -113,7 +114,8 @@ function visualBlockHtml(block, row, side) {
   }
   const tag = block.kind === "section" ? "h2" : block.kind === "heading" ? "h3" : "div";
   const bullet = block.kind === "bullet" ? '<span class="visual-bullet-mark" aria-hidden="true">•</span>' : "";
-  return `<${tag} class="visual-block visual-${escapeHtml(block.kind)} is-${escapeHtml(row?.status || "unchanged")}" data-block-id="${escapeHtml(block.id)}">${bullet}<span>${content}</span></${tag}>`;
+  const status = directionalStatus(row?.status || "unchanged");
+  return `<${tag} class="visual-block visual-${escapeHtml(block.kind)} is-${escapeHtml(status)}" data-block-id="${escapeHtml(block.id)}">${bullet}<span>${content}</span></${tag}>`;
 }
 
 function renderNormalizedVisual(status = "") {
@@ -245,38 +247,48 @@ function buildRows() {
   }).sort((leftRow, rightRow) => leftRow.index - rightRow.index);
 }
 
+function directionalStatus(status) {
+  if (byId("diff-base-side")?.value !== "right") return status;
+  if (status === "only-left") return "only-right";
+  if (status === "only-right") return "only-left";
+  return status;
+}
+
 function tokenDiff(leftText, rightText) {
-  const left = leftText ? leftText.trim().split(/\s+/) : [];
-  const right = rightText ? rightText.trim().split(/\s+/) : [];
-  const rows = left.length + 1;
-  const cols = right.length + 1;
+  const leftIsNewer = byId("diff-base-side")?.value === "right";
+  const base = (leftIsNewer ? rightText : leftText).trim().split(/\s+/).filter(Boolean);
+  const newer = (leftIsNewer ? leftText : rightText).trim().split(/\s+/).filter(Boolean);
+  const rows = base.length + 1;
+  const cols = newer.length + 1;
   const matrix = Array.from({ length: rows }, () => new Uint16Array(cols));
-  for (let i = left.length - 1; i >= 0; i -= 1) {
-    for (let j = right.length - 1; j >= 0; j -= 1) {
-      matrix[i][j] = left[i] === right[j]
+  for (let i = base.length - 1; i >= 0; i -= 1) {
+    for (let j = newer.length - 1; j >= 0; j -= 1) {
+      matrix[i][j] = base[i] === newer[j]
         ? matrix[i + 1][j + 1] + 1
         : Math.max(matrix[i + 1][j], matrix[i][j + 1]);
     }
   }
-  const leftParts = [];
-  const rightParts = [];
+  const baseParts = [];
+  const newerParts = [];
   let i = 0;
   let j = 0;
-  while (i < left.length || j < right.length) {
-    if (i < left.length && j < right.length && left[i] === right[j]) {
-      leftParts.push(escapeHtml(left[i]));
-      rightParts.push(escapeHtml(right[j]));
+  while (i < base.length || j < newer.length) {
+    if (i < base.length && j < newer.length && base[i] === newer[j]) {
+      baseParts.push(escapeHtml(base[i]));
+      newerParts.push(escapeHtml(newer[j]));
       i += 1;
       j += 1;
-    } else if (j < right.length && (i === left.length || matrix[i][j + 1] >= matrix[i + 1][j])) {
-      rightParts.push(`<ins>${escapeHtml(right[j])}</ins>`);
+    } else if (j < newer.length && (i === base.length || matrix[i][j + 1] >= matrix[i + 1][j])) {
+      newerParts.push(`<ins>${escapeHtml(newer[j])}</ins>`);
       j += 1;
     } else {
-      leftParts.push(`<del>${escapeHtml(left[i])}</del>`);
+      baseParts.push(`<del>${escapeHtml(base[i])}</del>`);
       i += 1;
     }
   }
-  return { left: leftParts.join(" "), right: rightParts.join(" ") };
+  return leftIsNewer
+    ? { left: newerParts.join(" "), right: baseParts.join(" ") }
+    : { left: baseParts.join(" "), right: newerParts.join(" ") };
 }
 
 function sectionSlug(section) {
@@ -296,8 +308,8 @@ function rowHtml(row) {
     unchanged: "Unchanged",
   };
   const kind = row.left?.kind || row.right?.kind || "text";
-  const leftClass = leftText ? "" : " empty";
-  const rightClass = rightText ? "" : " empty";
+  const leftClass = leftText ? (row.status === "only-left" ? ` ${byId("diff-base-side").value === "right" ? "added-cell" : "removed-cell"}` : "") : " empty";
+  const rightClass = rightText ? (row.status === "only-right" ? ` ${byId("diff-base-side").value === "right" ? "removed-cell" : "added-cell"}` : "") : " empty";
   return `<article class="diff-row is-${row.status}">
     <div class="row-meta"><strong>${escapeHtml(row.id)}</strong>${escapeHtml(kind)}<span class="change-kind">${statusLabels[row.status]}</span></div>
     <div class="diff-cell left${leftClass}">${leftText ? rendered.left : "Not present"}</div>
@@ -575,7 +587,10 @@ async function initialize() {
     if (!revisions.length) throw new Error("The project adapter returned no revisions.");
     fillRevisionSelect(controls.leftRevision);
     fillRevisionSelect(controls.rightRevision);
-    try { byId("chronological-direction").value = localStorage.getItem(DIRECTION_STORAGE_KEY) || "newer-left"; } catch (_) { /* Storage can be disabled. */ }
+    try {
+      byId("chronological-direction").value = localStorage.getItem(DIRECTION_STORAGE_KEY) || "newer-left";
+      byId("diff-base-side").value = localStorage.getItem(DIFF_BASE_STORAGE_KEY) || "right";
+    } catch (_) { /* Storage can be disabled. */ }
     await applyChronologicalDefault();
     renderGraph();
   } catch (error) {
@@ -601,6 +616,11 @@ controls.rightProfile.addEventListener("change", compare);
 byId("chronological-direction").addEventListener("change", async (event) => {
   try { localStorage.setItem(DIRECTION_STORAGE_KEY, event.currentTarget.value); } catch (_) { /* Storage can be disabled. */ }
   await applyChronologicalDefault();
+});
+byId("diff-base-side").addEventListener("change", (event) => {
+  try { localStorage.setItem(DIFF_BASE_STORAGE_KEY, event.currentTarget.value); } catch (_) { /* Storage can be disabled. */ }
+  renderDiff();
+  if (state.activeTab === "visual" && state.visualMode === "normalized") renderVisual();
 });
 byId("changes-only").addEventListener("change", renderDiff);
 byId("swap").addEventListener("click", async () => {
