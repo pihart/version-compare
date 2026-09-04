@@ -638,8 +638,8 @@ byId("loss-dialog").addEventListener("close", () => {
   if (byId("loss-dialog").returnValue === "confirm") recordPendingPreference();
   else state.pendingPreference = null;
 });
-byId("refresh-versions").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
+async function refreshVersions() {
+  const button = byId("refresh-versions");
   button.disabled = true;
   button.textContent = "Refreshing…";
   try {
@@ -656,6 +656,14 @@ byId("refresh-versions").addEventListener("click", async (event) => {
   } finally {
     button.disabled = false;
     button.textContent = "Refresh versions";
+  }
+}
+
+byId("refresh-versions").addEventListener("click", refreshVersions);
+window.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "r") {
+    event.preventDefault();
+    refreshVersions();
   }
 });
 
